@@ -411,6 +411,48 @@
             border-radius: 50px;
         }
         .btn-restart { background: #38bdf8; box-shadow: 0 0.5cqh 0px #0284c7; }
+
+        /* 行動版專用：半透明不影響視野的上下按鈕控制區 */
+        #mobile-controller {
+            display: none; /* 預設隱藏，僅在支援觸控的裝置顯示 */
+            position: absolute;
+            left: 4cqw;
+            bottom: 4cqh;
+            z-index: 90;
+            flex-direction: column;
+            gap: 2.5cqh;
+        }
+        .ctrl-btn {
+            width: 11cqh;
+            height: 11cqh;
+            min-width: 50px;
+            min-height: 50px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 0.3cqh solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 5cqh;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            cursor: pointer;
+        }
+        .ctrl-btn:active {
+            background: rgba(56, 189, 248, 0.6);
+            border-color: rgba(255, 255, 255, 0.8);
+            color: #fff;
+            transform: scale(0.92);
+        }
+        /* 當為觸控裝置時顯示虛擬按鈕 */
+        @media (pointer: coarse) {
+            #mobile-controller {
+                display: flex;
+            }
+        }
     </style>
 </head>
 <body>
@@ -430,6 +472,11 @@
                 <div id="level-display" class="ui-badge">關卡: 1 / 10</div>
                 <div id="progress-display" class="ui-badge">躲避進度: 0 / 20</div>
                 <div id="score-display" class="ui-badge">分數: 0</div>
+            </div>
+
+            <div id="mobile-controller">
+                <div class="ctrl-btn" id="btn-up">↑</div>
+                <div class="ctrl-btn" id="btn-down">↓</div>
             </div>
 
             <div id="hamburger-btn" onclick="toggleMenu()">
@@ -464,7 +511,7 @@
                     <p id="msg-desc">
                         小麻雀肚子餓了又怕淋濕！快來幫忙躲過重重雨滴，順利抵達溫暖的窗台吧！挑戰 10 道氣象隨機考驗關卡，讓分數大幅翻倍喔！<br><br>
                         <span class="instruction-tag">電腦操作</span> 方向鍵 <b>↑↓</b> 變更高度，長按 <b>→</b> 鍵加速前進。<br>
-                        <span class="instruction-tag">手機操作</span> 點擊畫面 <b>上半部/下半部</b> 切換高度，<b>長按畫面右側</b> 加速前進。
+                        <span class="instruction-tag">手機操作</span> 點擊左下角 <b>↑ ↓ 按鈕</b> 切換高度，<b>長按畫面右側區域</b> 加速前進。
                     </p>
                     <div class="btn-group">
                         <button id="start-btn" class="game-btn" onclick="startGame()">開始遊戲</button>
@@ -608,7 +655,7 @@
         msgTitle.innerText = "麻雀避雨大冒險";
         msgDesc.innerHTML = `小麻雀肚子餓了又怕淋濕！快來幫忙躲過重重雨滴，順利抵達溫暖的窗台吧！挑戰 10 道氣象隨機考驗關卡，讓分數大幅翻倍喔！<br><br>
                         <span class="instruction-tag">電腦操作</span> 方向鍵 <b>↑↓</b> 變更高度，長按 <b>→</b> 鍵加速前進。<br>
-                        <span class="instruction-tag">手機操作</span> 點擊畫面 <b>上半部/下半部</b> 切換高度，<b>長按畫面右側</b> 加速前進。`;
+                        <span class="instruction-tag">手機操作</span> 點擊左下角 <b>↑ ↓ 按鈕</b> 切換高度，<b>長按畫面右側區域</b> 加速前進。`;
         startBtn.innerText = "開始遊戲";
         updateUI();
     }
@@ -628,7 +675,6 @@
 
     function startSpawnLoops() {
         clearInterval(spawnLoopId);
-        // 優化點 1：提高生成間隔的下限值（由 380 放寬到 460），防止手機版雨滴在密集時完全無縫隙
         let interval = Math.max(460, spawnInterval - (currentLevel - 1) * 55);
         spawnLoopId = setInterval(spawnRaindrop, interval);
     }
@@ -643,7 +689,6 @@
         if(gameState !== 'PLAYING') return;
         
         let count = 1;
-        // 優化點 2：實施防連續雙波降雨機制 (如果前一波已經出了兩顆，這一波強迫改為單顆)
         if (currentLevel >= 3 && !lastSpawnWasDouble && Math.random() < 0.35) {
             count = 2;
             lastSpawnWasDouble = true;
@@ -698,9 +743,6 @@
                 drop.pctX -= currentSpeed;
                 drop.element.style.left = drop.pctX + '%';
 
-                // 優化點 3：針對小螢幕與旋轉模式縮小寬容度判定
-                // 將判定左邊緣原本的 9 調降為 11，右邊緣原本的 20 微調成 18.5。
-                // 這樣能有效防止麻雀在切換軌道時，明明視覺上稍微擦到邊卻被判定死亡的挫折感。
                 if (drop.lane === currentLane && drop.pctX > 11 && drop.pctX < 18.5) { 
                     endGame();
                     return;
@@ -895,49 +937,60 @@
         if (e.key === 'ArrowRight') speedMultiplier = 1;
     });
 
-    // 手機與滑鼠觸控點擊控制
-    function handleActionStart(e) {
+    // --- 改版：精準虛擬按鈕與右側長按加速控制 ---
+
+    // 1. 綁定左下角實體按鈕事件
+    document.getElementById('btn-up').addEventListener('touchstart', (e) => {
+        e.preventDefault();
         if (gameState !== 'PLAYING') return;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        if (currentLane > 0) {
+            currentLane--;
+            renderSparrowPosition();
+        }
+    });
+
+    document.getElementById('btn-down').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (gameState !== 'PLAYING') return;
+        if (currentLane < 2) {
+            currentLane++;
+            renderSparrowPosition();
+        }
+    });
+
+    // 2. 畫面的其餘區塊長按（專注於右半邊長按加速）
+    container.addEventListener('touchstart', (e) => {
+        // 如果點擊的是左下角的按鈕，不觸發加速邏輯
+        if (e.target.closest('#mobile-controller')) return;
+        
+        if (gameState !== 'PLAYING') return;
+
+        const touch = e.touches[0];
         const rect = container.getBoundingClientRect();
         
+        // 判斷直式或橫式
         let isPortrait = window.innerHeight > window.innerWidth;
         
         if (isPortrait) {
-            if (clientY < rect.top + rect.height * 0.35) {
+            // 直式狀態下：原本上半部加速，我們維持原邏輯高包容度
+            if (touch.clientY < rect.top + rect.height * 0.35) {
                 speedMultiplier = 2.2;
-            } else {
-                const relativeX = clientX - rect.left;
-                if (relativeX < rect.width / 2 && currentLane > 0) {
-                    currentLane--;
-                } else if (relativeX >= rect.width / 2 && currentLane < 2) {
-                    currentLane++;
-                }
-                renderSparrowPosition();
             }
         } else {
-            if (clientX > rect.left + rect.width * 0.65) {
+            // 正常橫式狀態下：點擊右側 65% 以上區域啟動加速
+            if (touch.clientX > rect.left + rect.width * 0.5) {
                 speedMultiplier = 2.2;
-            } else {
-                if (clientY < rect.top + rect.height / 2 && currentLane > 0) {
-                    currentLane--;
-                } else if (clientY >= rect.top + rect.height / 2 && currentLane < 2) {
-                    currentLane++;
-                }
-                renderSparrowPosition();
             }
         }
-    }
+    });
 
-    function handleActionEnd() {
+    // 3. 放開觸控時重置速度
+    container.addEventListener('touchend', (e) => {
         speedMultiplier = 1;
-    }
-
-    container.addEventListener('mousedown', handleActionStart);
-    container.addEventListener('mouseup', handleActionEnd);
-    container.addEventListener('touchstart', handleActionStart);
-    container.addEventListener('touchend', handleActionEnd);
+    });
+    container.addEventListener('touchcancel', (e) => {
+        speedMultiplier = 1;
+    });
 </script>
 </body>
 </html>
